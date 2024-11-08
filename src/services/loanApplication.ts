@@ -47,7 +47,7 @@ export const createLoanApplication = async (
       throw new Error(errorData.message || 'Failed to create loan application')
     }
 
-    const resData = await response.json() // Return the response data
+    const resData = await response.json()
 
     console.log(resData)
 
