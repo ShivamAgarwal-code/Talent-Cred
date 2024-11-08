@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PassportProfile {
+  id                      Int                 @id @default(autoincrement())
+  dynamicUserId           String              @unique
+  dynamicWallet           String              @unique
+  mainWallet              String              @unique
+  verifiedWallets         String[]
+  talentPassportId        Int                 @unique
+  talentUserId            String              @unique
+  name                    String
+  profilePictureUrl       String
+  verified                Boolean
+  humanCheck              Boolean
+  score                   Int
+  activityScore           Int
+  identityScore           Int
+  skillsScore             Int
+  nominationsReceived     Int
+  socialsLinked           Int
+  followerCount           Int
+  
+  creditLine              CreditLine?
+  loans                   Loan[]
+  loanApplications        LoanApplication[]
+  underwriterProfile      UnderwriterProfile?
+
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([dynamicUserId, dynamicWallet, mainWallet, talentPassportId, talentUserId, name])
+}
+
+model UnderwriterProfile {
+  id                      Int                 @id @default(autoincrement())  
+  name                    String
+  status                  UnderwriterStatus   @default(ACTIVE)
+
+  reviewedApplications    LoanApplication[]
+
+  passportProfileId       Int                 @unique
+  PassportProfile         PassportProfile     @relation(fields: [passportProfileId], references: [id])
+
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+}
+
+model LoanApplication {
+  id                      Int                   @id @default(autoincrement())  
+  amount                  Float
+  availableCreditLine     Float
+  xocScore                Int
+  builderScore            Int
+  nominationsReceived     Int
+  followers               Int
+  walletId                String
+  status                  LoanAppStatus         @default(PENDING)
+
+  applicantId             Int
+  applicant               PassportProfile       @relation(fields: [applicantId], references: [id])
+  creditLineId            Int
+  creditLine              CreditLine            @relation(fields: [creditLineId], references: [id])
+  reviewedById            Int?
+  reviewedBy              UnderwriterProfile?   @relation(fields: [reviewedById], references: [id])
+  loan                    Loan?
+  
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  
+  @@index([walletId, status])
+}
+
+model CreditLine {
+  id                      Int                 @id @default(autoincrement())
+  walletId                String
+  totalLimit              Float
+  availableLimit          Float
+  creditStatus            CreditStatus        @default(NO_HISTORY)
+  isOverdue               Boolean             @default(false)
+
+  issuedLoans             Loan[]
+  loanApplications        LoanApplication[]
+  payments                Payment[]
+  
+  borrowerId              Int                 @unique
+  borrower                PassportProfile     @relation(fields: [borrowerId], references: [id])
+
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  
+  @@index([walletId, creditStatus])
+}
+
+model Loan {
+  id                      Int                 @id @default(autoincrement())
+  status                  LoanStatus          @default(OK)
+  amount                  Float
+  pendingBalance          Float
+  dueDate                 DateTime
+  walletId                String
+
+  borrowerId              Int
+  borrower                PassportProfile     @relation(fields: [borrowerId], references: [id])
+  creditLineId            Int
+  creditLine              CreditLine          @relation(fields: [creditLineId], references: [id])
+  loanApplicationId       Int                 @unique
+  loanApplication         LoanApplication     @relation(fields: [loanApplicationId], references: [id])
+
+  payments                Payment[]
+  
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  
+  @@index([status, walletId])
+}
+
+model Payment {
+  id                      Int                 @id @default(autoincrement())
+  txHash                  String
+  walletId                String
+  amountPaid              Float
+  evmTimestamp            Int
+  timestamp               DateTime
+
+  loanId                  Int
+  loan                    Loan                @relation(fields: [loanId], references: [id])
+  creditLineId            Int
+  creditLine              CreditLine          @relation(fields: [creditLineId], references: [id])
+  
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  
+  @@index([txHash, walletId])
+}
+
+enum LoanAppStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LoanStatus {
+  OK
+  PARTIAL
+  LATE
+  OVERDUE
+  DEFAULTED
+  SETTLED
+}
+
+enum CreditStatus {
+  OK
+  PARTIAL
+  LATE
+  OVERDUE
+  DEFAULTED
+  SETTLED
+  NO_HISTORY
+}
+
+enum UnderwriterStatus {
+  ACTIVE
+  PAUSED
+  BANNED
+  INACTIVE
+}
